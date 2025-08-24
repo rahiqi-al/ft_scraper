@@ -1,0 +1,1 @@
+minio : http://localhost:9001/browser

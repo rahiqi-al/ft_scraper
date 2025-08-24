@@ -1,0 +1,7 @@
+SCRAPER:
+  BASE_URLS:
+    - "https://www.ft.com/world"
+    - "https://www.ft.com/us"
+    - "https://www.ft.com/companies"
+    - "https://www.ft.com/technology"
+    - "https://www.ft.com/markets"
