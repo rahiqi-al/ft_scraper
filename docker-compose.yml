@@ -14,5 +14,12 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    ports:
+      - "8191:8191"  # API
+    restart: unless-stopped
+
 volumes:
   minio_data:

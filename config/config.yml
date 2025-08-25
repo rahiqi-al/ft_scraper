@@ -5,3 +5,4 @@ SCRAPER:
     - "https://www.ft.com/companies"
     - "https://www.ft.com/technology"
     - "https://www.ft.com/markets"
+SEARCH_TERMS: ["tech", "finance", "markets", "companies"]
