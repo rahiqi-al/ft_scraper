@@ -29,7 +29,7 @@ def get_cloudflare_cookies(url):
         logger.error(f"flaresolverr failed: {response.text}")
         return []
 
-# Driver setup with undetected_chromedriver
+# driver setup with undetected_chromedriver
 def setup_driver():
     options = uc.ChromeOptions()
     options.add_argument("--headless=new")
@@ -106,8 +106,9 @@ def scrape_search_links(term):
         driver.quit()
     return pd.DataFrame(data)
 
-def scrape_article_data(articles, data):
+def scrape_article_data(articles):
     driver = setup_driver()
+    accessible_links = []
     try:
         for article in articles:
             try:
@@ -120,41 +121,18 @@ def scrape_article_data(articles, data):
                 driver.get(article)
                 WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
                 time.sleep(random.uniform(30, 45))
-                li = []
                 try:
                     paywall = driver.find_element(By.XPATH, "//div[contains(@class, 'paywall')]")
                     logger.info(f"Paywall detected for {article}, skipping")
-                    li.extend([None, None, None, article])
-                    for key, value in zip(data.keys(), li):
-                        data[key].append(value)
-                    continue
                 except NoSuchElementException:
-                    pass
-                try:
-                    title = driver.find_element(By.XPATH, "//h1[contains(@class, 'n-content-layout__title')]").text.strip()
-                    li.append(title)
-                except NoSuchElementException:
-                    li.append(None)
-                try:
-                    author = driver.find_element(By.XPATH, "//span[@itemprop='author']").text.strip()
-                    li.append(author)
-                except NoSuchElementException:
-                    li.append(None)
-                try:
-                    content_elements = driver.find_elements(By.XPATH, "//div[@itemprop='articleBody']//p")
-                    content = ' '.join([p.text.strip() for p in content_elements if p.text])[:1000]
-                    li.append(content)
-                except NoSuchElementException:
-                    li.append(None)
-                li.append(article)
-                for key, value in zip(data.keys(), li):
-                    data[key].append(value)
-                    logger.debug(f"Scraped {key}: {value} for {article}")
+                    logger.info(f"No paywall detected, link accessible: {article}")
+                    accessible_links.append(article)
             except Exception as e:
                 logger.error(f"Error scraping {article}: {e}")
                 continue
     finally:
         driver.quit()
+    return accessible_links
 
 def setup_minio():
     client = Minio(config.minio_endpoint, access_key=config.minio_acces_key, secret_key=config.minio_secret_key, secure=False)
@@ -191,18 +169,17 @@ def main():
     if not all_links_data.empty:
         save_to_minio(minio_client, link_bucket, all_links_data, filename=f"{link_bucket}_links_{datetime.now().strftime('%Y%m%d')}.csv")
 
-    article_data = {'title': [], 'author': [], 'content': [], 'link': []}
-    scrape_article_data(all_links_data["link"].dropna().unique(), article_data)
-    article_df = pd.DataFrame(article_data)
-    if not article_df.empty:
-        save_to_minio(minio_client, article_bucket, article_df)
+    accessible_links = scrape_article_data(all_links_data["link"].dropna().unique())
+    if accessible_links:
+        accessible_df = pd.DataFrame(accessible_links, columns=["link"])
+        save_to_minio(minio_client, article_bucket, accessible_df, filename=f"{article_bucket}_accessible_{datetime.now().strftime('%Y%m%d')}.csv")
 
 def run_scraper():
     logger.info("Starting daily scrape at scheduled time")
     main()
 
 if __name__ == '__main__':
-    schedule.every().day.at("20:52").do(run_scraper)
+    schedule.every().day.at("20:41").do(run_scraper)
 
     while True:
         schedule.run_pending()
